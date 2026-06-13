@@ -69,14 +69,15 @@ Open http://127.0.0.1:8080 in your browser.
 Live Demo
 Live Link: https://portfolio-tracker-product.up.railway.app
 (Replace with your actual Railway link once deployed)
-📊 Sample Output
+
+Sample Output
 
 Shows net quantity after buys/sells
 Real-time current prices (NSE)
 P&L (₹ and %)
 Allocation % per stock
 
-🤖 AI Chatbot
+AI Chatbot
 The floating chatbot in the bottom right can answer questions like:
 
 "What's my total P&L?"

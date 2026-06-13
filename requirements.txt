@@ -1,5 +1,6 @@
-yfinance
-pandas
 flask
+pandas
+yfinance
 groq
 python-dotenv
+gunicorn

@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Shravani's Portfolio Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+      * { box-sizing: border-box; }
+
+      body {
+        font-family: "Inter", system-ui, sans-serif;
+        background: #31093b;
+      }
+
+      /* Subtle grid background */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(139,92,246,0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(139,92,246,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      .content { position: relative; z-index: 1; }
+
+      .pnl-positive { color: #4ade80; }
+      .pnl-negative { color: #f87171; }
+
+      /* Glow card */
+      .card {
+        background: rgba(15,15,30,0.8);
+        border: 1px solid rgba(139,92,246,0.15);
+        border-radius: 16px;
+        transition: border-color 0.2s;
+      }
+      .card:hover { border-color: rgba(139,92,246,0.35); }
+
+      /* Table row hover */
+      .holdings-row {
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        transition: background 0.15s;
+      }
+      .holdings-row:last-child { border-bottom: none; }
+      .holdings-row:hover { background: rgba(139,92,246,0.06); }
+
+      /* Ticker badge */
+      .ticker-badge {
+        display: inline-block;
+        background: rgba(139,92,246,0.15);
+        color: #c4b5fd;
+        border: 1px solid rgba(139,92,246,0.25);
+        border-radius: 8px;
+        padding: 2px 10px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+      }
+
+      /* Allocation bar */
+      .alloc-bar {
+        display: inline-block;
+        height: 4px;
+        background: linear-gradient(90deg, #7c3aed, #ec4899);
+        border-radius: 99px;
+        vertical-align: middle;
+        margin-right: 6px;
+      }
+
+      /* Chat window */
+      .chat-window {
+        animation: slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      }
+      @keyframes slideUp {
+        from { transform: translateY(16px) scale(0.97); opacity: 0; }
+        to   { transform: translateY(0) scale(1);     opacity: 1; }
+      }
+
+      /* Chat messages */
+      .msg-ai   { background: rgba(30,30,50,0.9); border: 1px solid rgba(139,92,246,0.2); }
+      .msg-user { background: linear-gradient(135deg, #7c3aed, #db2777); }
+      color: #e5e7eb;
+
+      /* Scrollbar */
+      #chatMessages::-webkit-scrollbar { width: 4px; }
+      #chatMessages::-webkit-scrollbar-track { background: transparent; }
+      #chatMessages::-webkit-scrollbar-thumb { background: rgba(139,92,246,0.4); border-radius: 99px; }
+
+      /* Typing dots */
+      .dot { animation: blink 1.2s infinite; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #a78bfa; margin: 0 2px; }
+      .dot:nth-child(2) { animation-delay: 0.2s; }
+      .dot:nth-child(3) { animation-delay: 0.4s; }
+      @keyframes blink { 0%,80%,100% { opacity:0.2; transform: scale(0.8); } 40% { opacity:1; transform: scale(1); } }
+
+      /* Chat FAB pulse ring */
+      .fab-ring {
+        position: absolute;
+        inset: -4px;
+        border-radius: 20px;
+        border: 2px solid rgba(139,92,246,0.4);
+        animation: pulse-ring 2.5s ease-out infinite;
+      }
+      @keyframes pulse-ring {
+        0%   { transform: scale(1);    opacity: 0.7; }
+        100% { transform: scale(1.15); opacity: 0;   }
+      }
+    </style>
+  </head>
+
+  <body class="min-h-screen">
+    <div class="content max-w-6xl mx-auto px-6 py-10">
+
+      <!-- Header -->
+      <div class="flex flex-wrap justify-between items-start gap-6 mb-10">
+        <div>
+          <p class="text-xs font-semibold tracking-widest text-purple-400 uppercase mb-1">Portfolio Tracker</p>
+          <h1 class="text-4xl font-bold bg-gradient-to-r from-purple-400 via-fuchsia-400 to-pink-400 bg-clip-text text-transparent leading-tight"> Daily Portfolio Overview
+          </h1>
+          <div class="flex items-center gap-2 mt-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <p class="text-gray-500 text-sm">Live prices · NSE</p>
+          </div>
+        </div>
+        <div class="card px-7 py-5 text-right">
+          <p class="text-xs text-gray-500 uppercase tracking-widest mb-1">Portfolio Value</p>
+          <p class="text-3xl font-bold text-white">₹{{ "%.2f"|format(summary.total_value) }}</p>
+        </div>
+      </div>
+
+      <!-- Summary Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
+
+        <div class="card p-6">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center">
+              <i class="fa-solid fa-coins text-purple-400 text-sm"></i>
+            </div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Invested</p>
+          </div>
+          <p class="text-2xl font-semibold text-white">₹{{ "%.2f"|format(summary.total_invested) }}</p>
+        </div>
+
+        <div class="card p-6">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg {{ 'bg-emerald-500/10' if summary.total_pnl_abs >= 0 else 'bg-red-500/10' }} flex items-center justify-center">
+              <i class="fa-solid {{ 'fa-arrow-trend-up text-emerald-400' if summary.total_pnl_abs >= 0 else 'fa-arrow-trend-down text-red-400' }} text-sm"></i>
+            </div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Total P&L</p>
+          </div>
+          <p class="text-2xl font-semibold {{ 'pnl-positive' if summary.total_pnl_abs >= 0 else 'pnl-negative' }}">
+            {{ '+' if summary.total_pnl_abs >= 0 else '' }}₹{{ "%.2f"|format(summary.total_pnl_abs) }}
+          </p>
+          <p class="text-sm {{ 'text-emerald-500' if summary.total_pnl_abs >= 0 else 'text-red-500' }} mt-1">
+            {{ '+' if summary.total_pnl_pct >= 0 else '' }}{{ "%.2f"|format(summary.total_pnl_pct) }}%
+          </p>
+        </div>
+
+        <div class="card p-6 col-span-2 md:col-span-1">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-8 h-8 rounded-lg bg-pink-500/10 flex items-center justify-center">
+              <i class="fa-solid fa-layer-group text-pink-400 text-sm"></i>
+            </div>
+            <p class="text-xs text-gray-500 uppercase tracking-wider">Holdings</p>
+          </div>
+          <p class="text-2xl font-semibold text-white" >{{ portfolio|length }}</p>
+          <p class="text-sm text-gray-500 mt-1">active positions</p>
+        </div>
+
+      </div>
+
+      <!-- Holdings Table -->
+      <div class="card overflow-hidden">
+        <div class="px-7 py-5 border-b border-white/5 flex items-center justify-between">
+          <h2 class="font-semibold text-sm tracking-wide text-gray-300">Holdings</h2>
+          <span class="text-xs text-gray-200">Prices in ₹ · NSE</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="border-b border-white/5">
+                <th class="text-left py-4 px-7 text-xs font-medium text-red-200 uppercase tracking-wider">Ticker</th>
+                <th class="text-right py-4 px-5 text-xs font-medium text-red-200 uppercase tracking-wider">Qty</th>
+                <th class="text-right py-4 px-5 text-xs font-medium text-red-200 uppercase tracking-wider">Avg Buy</th>
+                <th class="text-right py-4 px-5 text-xs font-medium text-red-200 uppercase tracking-wider">Current</th>
+                <th class="text-right py-4 px-5 text-xs font-medium text-red-200 uppercase tracking-wider">Value</th>
+                <th class="text-right py-4 px-5 text-xs font-medium text-red-200 uppercase tracking-wider">P&L</th>
+                <th class="text-right py-4 px-7 text-xs font-medium text-red-200 uppercase tracking-wider">Weight</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for h in portfolio %}
+              <tr class="holdings-row">
+                <td class="py-5 px-7">
+                  <span class="ticker-badge">{{ h.ticker }}</span>
+                </td>
+                <td class="text-right py-5 px-5 text-white tabular-nums">{{ h.quantity }}</td>
+                <td class="text-right py-5 px-5 text-gray-200 tabular-nums">₹{{ "%.2f"|format(h.buy_price) }}</td>
+                <td class="text-right py-5 px-5 text-white font-medium tabular-nums">₹{{ "%.2f"|format(h.current_price) }}</td>
+                <td class="text-right py-5 px-5 text-white font-semibold tabular-nums">₹{{ "%.2f"|format(h.current_value) }}</td>
+                <td class="text-right py-5 px-5 tabular-nums text-white {{ 'pnl-positive' if h.pnl_abs >= 0 else 'pnl-negative' }}">
+                  {{ '+' if h.pnl_abs >= 0 else '' }}₹{{ "%.2f"|format(h.pnl_abs) }}
+                  <span class="text-xs opacity-80 ml-1">({{ '+' if h.pnl_pct >= 0 else '' }}{{ "%.1f"|format(h.pnl_pct) }}%)</span>
+                </td>
+                <td class="text-right py-5 px-7" style="width: 120px;">
+                  <div class="flex items-center justify-end gap-2">
+                    <span class="alloc-bar" style="width: {{ [h.allocation * 0.8, 1]|max }}px; max-width: 48px;"></span>
+                    <span class="text-gray-200 tabular-nums text-sm">{{ "%.1f"|format(h.allocation) }}%</span>
+                  </div>
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="7" class="py-16 text-center text-gray-600">
+                  <i class="fa-solid fa-chart-pie text-3xl mb-3 block"></i>
+                  No holdings found. Add trades to trades.csv to get started.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+
+
+    <!-- ── Floating Chat ──────────────────────────────────────────── -->
+
+    <!-- Chat panel — fixed independently so it never overlaps the table -->
+    <div
+      id="chatWindow"
+      class="hidden fixed bottom-24 right-6 z-50 rounded-2xl shadow-2xl overflow-hidden chat-window"
+      style="width: 380px; background: rgba(8,8,20,0.97); border: 1px solid rgba(139,92,246,0.25); backdrop-filter: blur(20px);"
+      role="dialog"
+      aria-label="Portfolio Assistant"
+    >
+
+        <!-- Header -->
+        <div class="flex justify-between items-center px-5 py-4 border-b border-white/5" style="background: rgba(32, 24, 63, 0.9);">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-sm">
+              <i class="fa-solid fa-robot"></i>
+            </div>
+            <div>
+              <p class="font-semibold text-sm text-white">Portfolio Assistant</p>
+              <p class="text-xs text-gray-500">Powered by Groq · Llama 4</p>
+            </div>
+          </div>
+          <button onclick="toggleChat()" class="text-gray-600 hover:text-white transition w-8 h-8 rounded-lg hover:bg-white/5 flex items-center justify-center" aria-label="Close chat">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
+        <!-- Messages -->
+        <div id="chatMessages" class="h-80 overflow-y-auto p-4 space-y-3 aw66 text-white" style="scroll-behavior: smooth;"></div>
+
+        <!-- Input -->
+        <div class="p-4 border-t border-white/5" style="background: rgba(15,10,30,0.95);">
+          <div class="flex gap-2">
+            <input
+              id="userInput"
+              type="text"
+              placeholder="Ask about your portfolio…"
+              class="flex-1 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 transition"
+              style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #e5e7eb;"
+              onkeydown="if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); sendMessage(); }"
+            />
+            <button
+              id="sendBtn"
+              onclick="sendMessage()"
+              class="bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 w-11 h-11 rounded-xl flex items-center justify-center transition active:scale-90 flex-shrink-0"
+              aria-label="Send message"
+            >
+              <i class="fa-solid fa-paper-plane text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- FAB Toggle Button -->
+    <div class="fixed bottom-6 right-6 z-50">
+      <div class="relative inline-block">
+        <div class="fab-ring"></div>
+        <button
+          onclick="toggleChat()"
+          class="relative bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 w-14 h-14 rounded-2xl shadow-2xl flex items-center justify-center text-xl transition-all active:scale-90"
+          aria-label="Open portfolio assistant"
+        >
+          <i class="fa-solid fa-robot" id="chatIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <script>
+      /* ── Chat state ───────────────────────────── */
+      let chatOpen = false;
+      let isTyping = false;
+
+      /* ── Toggle ───────────────────────────────── */
+      function toggleChat() {
+        chatOpen = !chatOpen;
+        const win  = document.getElementById('chatWindow');
+        const icon = document.getElementById('chatIcon');
+
+        if (chatOpen) {
+          win.classList.remove('hidden');
+          icon.className = 'fa-solid fa-xmark';
+          document.getElementById('userInput').focus();
+          // Welcome message once
+          if (document.getElementById('chatMessages').children.length === 0) {
+            setTimeout(() => addMessage("Hey! How's my favorite investor doing? Ask me anything about your portfolio.", false), 300);
+          }
+        } else {
+          win.classList.add('hidden');
+          icon.className = 'fa-solid fa-robot';
+        }
+      }
+
+      /* ── Add message bubble ───────────────────── */
+      function addMessage(text, isUser) {
+        const container = document.getElementById('chatMessages');
+        const wrap = document.createElement('div');
+        wrap.className = 'flex ' + (isUser ? 'justify-end' : 'justify-start');
+
+        const bubble = document.createElement('div');
+        bubble.className = (isUser ? 'msg-user' : 'msg-ai') +
+          ' rounded-2xl px-4 py-3 text-sm leading-relaxed max-w-[85%]';
+        bubble.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
+
+        wrap.appendChild(bubble);
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+        return bubble;
+      }
+
+      /* ── Typing indicator ─────────────────────── */
+      function showTyping() {
+        const container = document.getElementById('chatMessages');
+        const wrap = document.createElement('div');
+        wrap.id = 'typingIndicator';
+        wrap.className = 'flex justify-start';
+        wrap.innerHTML = `
+          <div class="msg-ai rounded-2xl px-4 py-3 flex items-center gap-1">
+            <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          </div>`;
+        container.appendChild(wrap);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function hideTyping() {
+        const t = document.getElementById('typingIndicator');
+        if (t) t.remove();
+      }
+
+      /* ── XSS safety ───────────────────────────── */
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      /* ── Send message ─────────────────────────── */
+      async function sendMessage() {
+        if (isTyping) return;
+        const input = document.getElementById('userInput');
+        const message = input.value.trim();
+        if (!message) return;
+
+        addMessage(message, true);
+        input.value = '';
+        isTyping = true;
+        document.getElementById('sendBtn').disabled = true;
+
+        showTyping();
+
+        try {
+          const res  = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+          const data = await res.json();
+          hideTyping();
+          addMessage(data.response || 'Sorry, I got an empty response.', false);
+        } catch {
+          hideTyping();
+          addMessage("Trouble connecting right now. Please try again in a moment.", false);
+        } finally {
+          isTyping = false;
+          document.getElementById('sendBtn').disabled = false;
+          input.focus();
+        }
+      }
+    </script>
+  </body>
+</html>

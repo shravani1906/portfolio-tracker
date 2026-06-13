@@ -1,0 +1,5 @@
+yfinance
+pandas
+flask
+groq
+python-dotenv
